@@ -1,5 +1,10 @@
-import { queryInternalDatabase } from '@/server-lib/internal-db-query';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+
+// Initialize Supabase using your environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -21,10 +26,8 @@ function err(msg: string, status = 500) {
 
 export async function POST(request: Request) {
   try {
-    // 1. Parse body
     const body = await request.json() as Record<string, unknown>;
 
-    // 2. Required fields
     const required = [
       'founder_name','founder_email','company_name','one_liner',
       'sector','arr_bucket','fda_clearance','stage','round_size','pitch_deck_url',
@@ -34,7 +37,6 @@ export async function POST(request: Request) {
     }
     if (!body.consent) return err('consent is required', 400);
 
-    // 3. Quick-scan tag
     const CORE_TAGS = new Set([
       "Care Coordination & Navigation","Data & Interoperability","Diagnostics & Screening",
       "Direct Care & Clinical Delivery","Mental & Behavioral Health","Prevention & Wellness",
@@ -52,72 +54,59 @@ export async function POST(request: Request) {
     if (arrOk && fdaOk && themeOk) tag = 'Core fit';
     else if (arr === 'Pre-revenue' || fda === 'Yes' || fit.length === 0) tag = 'Outside current focus';
 
-    // 4. Insert
-    const rows = await queryInternalDatabase(
-      `INSERT INTO pitch_submissions
-        (founder_name, founder_email, founder_linkedin, company_name, company_website,
-         one_liner, sector, arr_bucket, fda_clearance, stage, round_size, amount_committed,
-         pitch_deck_url, strategic_fit, consent, quick_scan_tag)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::text[],$15,$16)
-       RETURNING id, company_name, founder_email`,
-      [
-        String(body.founder_name ?? ''),
-        String(body.founder_email ?? ''),
-        body.founder_linkedin ? String(body.founder_linkedin) : null,
-        String(body.company_name ?? ''),
-        body.company_website ? String(body.company_website) : null,
-        String(body.one_liner ?? ''),
-        String(body.sector ?? ''),
-        arr,
-        fda,
-        String(body.stage ?? ''),
-        String(body.round_size ?? ''),
-        body.amount_committed ? String(body.amount_committed) : null,
-        String(body.pitch_deck_url ?? ''),
-        fit,
-        Boolean(body.consent),
-        tag,
-      ],
-    );
+    // Direct insert via Supabase client
+    const { data, error } = await supabase
+      .from('pitch_submissions')
+      .insert([
+        {
+          founder_name: String(body.founder_name ?? ''),
+          founder_email: String(body.founder_email ?? ''),
+          founder_linkedin: body.founder_linkedin ? String(body.founder_linkedin) : null,
+          company_name: String(body.company_name ?? ''),
+          company_website: body.company_website ? String(body.company_website) : null,
+          one_liner: String(body.one_liner ?? ''),
+          sector: String(body.sector ?? ''),
+          arr_bucket: arr,
+          fda_clearance: fda,
+          stage: String(body.stage ?? ''),
+          round_size: String(body.round_size ?? ''),
+          amount_committed: body.amount_committed ? String(body.amount_committed) : null,
+          pitch_deck_url: String(body.pitch_deck_url ?? ''),
+          strategic_fit: fit,
+          consent: Boolean(body.consent),
+          quick_scan_tag: tag,
+        }
+      ])
+      .select('id, company_name, founder_email')
+      .single();
 
-    // 5. Emails (fire-and-forget — never block or fail the response)
-    const row = rows[0] as { id: string; company_name: string; founder_email: string };
-    void sendEmails(body, row, tag);
+    if (error) throw error;
 
-    return ok(row, 201);
+    void sendEmails(body, data, tag);
+
+    return ok(data, 201);
   } catch (e) {
     const msg = e instanceof Error ? e.message : JSON.stringify(e);
     console.error('POST /api/submissions error:', msg);
-    // Write error to DB so we can read it
-    try {
-      await queryInternalDatabase(
-        `INSERT INTO api_errors (route, error_msg) VALUES ($1, $2)`,
-        ['POST /api/submissions', msg],
-      );
-    } catch { /* ignore */ }
     return err(msg);
   }
 }
 
 export async function GET() {
   try {
-    const rows = await queryInternalDatabase(
-      `SELECT id, founder_name, founder_email, founder_linkedin, company_name,
-              company_website, one_liner, sector, arr_bucket, fda_clearance, stage,
-              round_size, amount_committed, pitch_deck_url, strategic_fit, consent,
-              status, notes, quick_scan_tag, submitted_at
-       FROM pitch_submissions ORDER BY submitted_at DESC`,
-      [],
-    );
-    return ok(rows);
+    const { data, error } = await supabase
+      .from('pitch_submissions')
+      .select('*')
+      .order('submitted_at', { ascending: false });
+
+    if (error) throw error;
+    return ok(data);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('GET /api/submissions error:', msg);
     return err(msg);
   }
 }
-
-// ── Email helpers ─────────────────────────────────────────────────────────────
 
 async function sendEmails(
   body: Record<string, unknown>,
