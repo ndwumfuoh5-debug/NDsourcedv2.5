@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const vybeDomain = process.env.NEXT_PUBLIC_VYBE_INTEGRATIONS_DOMAIN ?? "https://vybe.build";
+const vybeDomain = process.env.NEXT_PUBLIC_VYBE_INTEGRATIONS_DOMAIN ?? "";
 const showLiveData = process.env.NEXT_PUBLIC_SHOW_LIVE_DATA === "true";
 export const showFakeData = process.env.NODE_ENV === "development" && !showLiveData;
 
