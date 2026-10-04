@@ -49,7 +49,7 @@ const fetcher = (url: string) =>
 
 // Always hit the Vybe-hosted app URL directly so submissions work
 // from any custom domain (e.g. ndsourced.com)
-const API_BASE = 'https://source-cay.vybe.build';
+const API_BASE = '';
 
 export function useSubmissions() {
   return useSWR<PitchSubmission[]>('/api/submissions', fetcher);
