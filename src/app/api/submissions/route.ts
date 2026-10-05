@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-// Initialize Supabase using your environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -29,8 +28,8 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
 
     const required = [
-      'founder_name','founder_email','company_name','one_liner',
-      'sector','arr_bucket','fda_clearance','stage','round_size','pitch_deck_url',
+      'founder_name', 'founder_email', 'company_name', 'one_liner',
+      'sector', 'arr_bucket', 'fda_clearance', 'stage', 'round_size', 'pitch_deck_url',
     ];
     for (const f of required) {
       if (!body[f]) return err(`${f} is required`, 400);
@@ -38,12 +37,13 @@ export async function POST(request: Request) {
     if (!body.consent) return err('consent is required', 400);
 
     const CORE_TAGS = new Set([
-      "Care Coordination & Navigation","Data & Interoperability","Diagnostics & Screening",
-      "Direct Care & Clinical Delivery","Mental & Behavioral Health","Prevention & Wellness",
-      "Regulatory & Compliance","Remote Patient Monitoring","Revenue Cycle Management",
-      "Substance Use & Addiction","Value-Based Care Enablement","Women's Health",
-      "Workforce & Staffing","Aging & Senior Care",
+      "Care Coordination & Navigation", "Data & Interoperability", "Diagnostics & Screening",
+      "Direct Care & Clinical Delivery", "Mental & Behavioral Health", "Prevention & Wellness",
+      "Regulatory & Compliance", "Remote Patient Monitoring", "Revenue Cycle Management",
+      "Substance Use & Addiction", "Value-Based Care Enablement", "Women's Health",
+      "Workforce & Staffing", "Aging & Senior Care",
     ]);
+
     const arr = String(body.arr_bucket ?? '');
     const fda = String(body.fda_clearance ?? '');
     const fit = Array.isArray(body.strategic_fit) ? (body.strategic_fit as string[]) : [];
@@ -54,7 +54,6 @@ export async function POST(request: Request) {
     if (arrOk && fdaOk && themeOk) tag = 'Core fit';
     else if (arr === 'Pre-revenue' || fda === 'Yes' || fit.length === 0) tag = 'Outside current focus';
 
-    // Direct insert via Supabase client
     const { data, error } = await supabase
       .from('pitch_submissions')
       .insert([
