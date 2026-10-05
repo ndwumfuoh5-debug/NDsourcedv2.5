@@ -47,10 +47,6 @@ const fetcher = (url: string) =>
     return r.json();
   });
 
-// Always hit the Vybe-hosted app URL directly so submissions work
-// from any custom domain (e.g. ndsourced.com)
-const API_BASE = '';
-
 export function useSubmissions() {
   return useSWR<PitchSubmission[]>('/api/submissions', fetcher);
 }
@@ -60,10 +56,9 @@ export function useSubmission(id: string) {
 }
 
 export async function createSubmission(data: CreateSubmissionData) {
-  const url = `${API_BASE}/api/submissions`;
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await fetch('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
