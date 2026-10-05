@@ -28,12 +28,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as Record<string, unknown>;
 
-    const required = [
-      'founder_name', 'founder_email', 'company_name', 'one_liner',
-      'sector', 'arr_bucket', 'fda_clearance', 'stage', 'round_size', 'pitch_deck_url',
-    ];
-    for (const f of required) {
-      if (!body[f]) return err(`${f} is required`, 400);
+    const founder_name = String(body.founder_name ?? '').trim();
+    const founder_email = String(body.founder_email ?? '').trim();
+    const company_name = String(body.company_name ?? '').trim();
+    const one_liner = String(body.one_liner ?? '').trim();
+    const sector = String(body.sector ?? '').trim();
+    const arr_bucket = String(body.arr_bucket ?? '').trim();
+    const fda_clearance = String(body.fda_clearance ?? '').trim();
+    const stage = String(body.stage ?? '').trim();
+    const round_size = String(body.round_size ?? '').trim();
+    const pitch_deck_url = String(body.pitch_deck_url ?? '').trim();
+
+    if (!founder_name || !founder_email || !company_name || !one_liner || !sector || !arr_bucket || !fda_clearance || !stage || !round_size || !pitch_deck_url) {
+      return err('Missing required fields', 400);
     }
     if (!body.consent) return err('consent is required', 400);
 
@@ -45,15 +52,13 @@ export async function POST(request: Request) {
       "Workforce & Staffing", "Aging & Senior Care",
     ]);
 
-    const arr = String(body.arr_bucket ?? '');
-    const fda = String(body.fda_clearance ?? '');
     const fit = Array.isArray(body.strategic_fit) ? (body.strategic_fit as string[]) : [];
-    const arrOk = arr === '$1M–$5M' || arr === '$5M+';
-    const fdaOk = fda === 'No';
+    const arrOk = arr_bucket === '$1M–$5M' || arr_bucket === '$5M+';
+    const fdaOk = fda_clearance === 'No';
     const themeOk = fit.filter((f) => CORE_TAGS.has(f)).length >= 1;
     let tag = 'Possible fit';
     if (arrOk && fdaOk && themeOk) tag = 'Core fit';
-    else if (arr === 'Pre-revenue' || fda === 'Yes' || fit.length === 0) tag = 'Outside current focus';
+    else if (arr_bucket === 'Pre-revenue' || fda_clearance === 'Yes' || fit.length === 0) tag = 'Outside current focus';
 
     const client = await pool.connect();
     let result;
@@ -66,19 +71,19 @@ export async function POST(request: Request) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::text[],$15,$16)
          RETURNING id, company_name, founder_email`,
         [
-          String(body.founder_name ?? ''),
-          String(body.founder_email ?? ''),
+          founder_name,
+          founder_email,
           body.founder_linkedin ? String(body.founder_linkedin) : null,
-          String(body.company_name ?? ''),
+          company_name,
           body.company_website ? String(body.company_website) : null,
-          String(body.one_liner ?? ''),
-          String(body.sector ?? ''),
-          arr,
-          fda,
-          String(body.stage ?? ''),
-          String(body.round_size ?? ''),
+          one_liner,
+          sector,
+          arr_bucket,
+          fda_clearance,
+          stage,
+          round_size,
           body.amount_committed ? String(body.amount_committed) : null,
-          String(body.pitch_deck_url ?? ''),
+          pitch_deck_url,
           fit,
           Boolean(body.consent),
           tag,
