@@ -1,9 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
 import { NextResponse } from 'next/server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -54,36 +55,43 @@ export async function POST(request: Request) {
     if (arrOk && fdaOk && themeOk) tag = 'Core fit';
     else if (arr === 'Pre-revenue' || fda === 'Yes' || fit.length === 0) tag = 'Outside current focus';
 
-    const { data, error } = await supabase
-      .from('pitch_submissions')
-      .insert([
-        {
-          founder_name: String(body.founder_name ?? ''),
-          founder_email: String(body.founder_email ?? ''),
-          founder_linkedin: body.founder_linkedin ? String(body.founder_linkedin) : null,
-          company_name: String(body.company_name ?? ''),
-          company_website: body.company_website ? String(body.company_website) : null,
-          one_liner: String(body.one_liner ?? ''),
-          sector: String(body.sector ?? ''),
-          arr_bucket: arr,
-          fda_clearance: fda,
-          stage: String(body.stage ?? ''),
-          round_size: String(body.round_size ?? ''),
-          amount_committed: body.amount_committed ? String(body.amount_committed) : null,
-          pitch_deck_url: String(body.pitch_deck_url ?? ''),
-          strategic_fit: fit,
-          consent: Boolean(body.consent),
-          quick_scan_tag: tag,
-        }
-      ])
-      .select('id, company_name, founder_email')
-      .single();
+    const client = await pool.connect();
+    let result;
+    try {
+      result = await client.query(
+        `INSERT INTO pitch_submissions
+          (founder_name, founder_email, founder_linkedin, company_name, company_website,
+           one_liner, sector, arr_bucket, fda_clearance, stage, round_size, amount_committed,
+           pitch_deck_url, strategic_fit, consent, quick_scan_tag)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::text[],$15,$16)
+         RETURNING id, company_name, founder_email`,
+        [
+          String(body.founder_name ?? ''),
+          String(body.founder_email ?? ''),
+          body.founder_linkedin ? String(body.founder_linkedin) : null,
+          String(body.company_name ?? ''),
+          body.company_website ? String(body.company_website) : null,
+          String(body.one_liner ?? ''),
+          String(body.sector ?? ''),
+          arr,
+          fda,
+          String(body.stage ?? ''),
+          String(body.round_size ?? ''),
+          body.amount_committed ? String(body.amount_committed) : null,
+          String(body.pitch_deck_url ?? ''),
+          fit,
+          Boolean(body.consent),
+          tag,
+        ]
+      );
+    } finally {
+      client.release();
+    }
 
-    if (error) throw error;
+    const row = result.rows[0];
+    void sendEmails(body, row, tag);
 
-    void sendEmails(body, data, tag);
-
-    return ok(data, 201);
+    return ok(row, 201);
   } catch (e) {
     const msg = e instanceof Error ? e.message : JSON.stringify(e);
     console.error('POST /api/submissions error:', msg);
@@ -93,13 +101,20 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
-      .from('pitch_submissions')
-      .select('*')
-      .order('submitted_at', { ascending: false });
-
-    if (error) throw error;
-    return ok(data);
+    const client = await pool.connect();
+    let result;
+    try {
+      result = await client.query(
+        `SELECT id, founder_name, founder_email, founder_linkedin, company_name,
+                company_website, one_liner, sector, arr_bucket, fda_clearance, stage,
+                round_size, amount_committed, pitch_deck_url, strategic_fit, consent,
+                status, notes, quick_scan_tag, submitted_at
+         FROM pitch_submissions ORDER BY submitted_at DESC`
+      );
+    } finally {
+      client.release();
+    }
+    return ok(result.rows);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('GET /api/submissions error:', msg);
