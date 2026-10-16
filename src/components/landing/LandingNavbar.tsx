@@ -46,7 +46,7 @@ export function LandingNavbar() {
           style={{ background: "linear-gradient(135deg, #7c6fcd 0%, #5b8dee 100%)", boxShadow: "0 4px 16px rgba(100,110,220,0.35)" }}
           className="text-white rounded-full px-5 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
         >
-          Submit your deck
+          Submit your company
         </button>
       </div>
     </nav>
