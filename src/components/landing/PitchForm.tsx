@@ -227,7 +227,7 @@ function MultiSelectChips({
   );
 }
 
-function SuccessState({ email, onReset }: { email: string; onReset: () => void }) {
+function SuccessState({ onReset }: { onReset: () => void }) {
   return (
     <div className="text-center py-16 px-4">
       <div className="w-12 h-12 bg-[#1a1f2e] text-white rounded-full flex items-center justify-center mx-auto mb-8">
@@ -236,14 +236,12 @@ function SuccessState({ email, onReset }: { email: string; onReset: () => void }
       <h3 className="text-3xl font-bold tracking-tight text-[#1a1f2e] mb-4">Submission received.</h3>
       <p className="text-slate-500 max-w-sm mx-auto leading-relaxed text-pretty text-sm">
         Thanks for sharing. I review submissions on a rolling basis and will follow up if there&apos;s a fit.
-        A confirmation has been sent to{" "}
-        <span className="font-medium text-[#1a1f2e]">{email}</span>.
       </p>
       <button
         onClick={onReset}
         className="mt-10 text-xs tracking-widest uppercase text-slate-400 hover:text-slate-700 underline underline-offset-4 transition-colors"
       >
-        Submit another deck
+        Submit another company
       </button>
     </div>
   );
@@ -279,6 +277,7 @@ export function PitchForm() {
     if (!form.fda_clearance) e.fda_clearance = "Required";
     if (!form.stage) e.stage = "Required";
     if (!form.round_size) e.round_size = "Required";
+    // pitch_deck_url is optional
     if (form.strategic_fit.length === 0) e.strategic_fit = "Select at least one";
     if (!form.consent) e.consent = "Consent required to submit";
     setErrors(e);
@@ -326,7 +325,6 @@ export function PitchForm() {
   if (submitted) {
     return (
       <SuccessState
-        email={submittedEmail}
         onReset={() => {
           setForm(emptyForm);
           setSubmitted(false);
@@ -454,11 +452,11 @@ export function PitchForm() {
       <SectionDivider number="05" label="Your Pitch" />
       <div className="space-y-4 pt-2 pb-4">
         <div>
-          <Label required>Pitch Deck URL</Label>
+          <Label>Pitch Deck URL</Label>
           <Input type="url" placeholder="https://docsend.com/view/..." value={form.pitch_deck_url}
             onChange={(e) => set("pitch_deck_url", e.target.value)} error={errors.pitch_deck_url} />
           <p className="mt-2 text-xs text-slate-500">
-            DocSend, Google Drive, or Dropbox link · Private and confidential
+            Optional · DocSend, Google Drive, or Dropbox link · Private and confidential
           </p>
         </div>
       </div>
@@ -495,7 +493,7 @@ export function PitchForm() {
         {submitting ? (
           <><Loader2 size={14} className="animate-spin" /> Submitting…</>
         ) : (
-          "Submit your deck →"
+          "Submit"
         )}
       </button>
     </form>
